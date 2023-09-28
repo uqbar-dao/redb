@@ -11,7 +11,7 @@ use crate::{
 };
 use crate::{ReadTransaction, Result, WriteTransaction};
 use std::fmt::{Display, Formatter};
-use std::fs::{File, OpenOptions};
+// use std::fs::{File, OpenOptions};
 use std::io::ErrorKind;
 use std::marker::PhantomData;
 use std::ops::RangeFull;
@@ -25,6 +25,8 @@ use crate::sealed::Sealed;
 use crate::transactions::SAVEPOINT_TABLE;
 #[cfg(feature = "logging")]
 use log::{info, warn};
+
+use crate::{File, OpenOptions};
 
 struct AtomicTransactionId {
     inner: AtomicU64,

@@ -3,7 +3,7 @@ use crate::tree_store::page_store::file_lock::LockedFile;
 use crate::tree_store::LEAF;
 use crate::{DatabaseError, Result, StorageError};
 use std::collections::BTreeMap;
-use std::fs::File;
+// use std::fs::File;
 use std::io;
 use std::mem;
 use std::ops::{Index, IndexMut};
@@ -14,6 +14,8 @@ use std::slice::SliceIndex;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
+
+use crate::File;
 
 // Leaf pages are cached with low priority. Everything is cached with high priority
 #[derive(Clone, Copy)]

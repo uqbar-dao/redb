@@ -16,9 +16,11 @@ use std::cmp::{max, min};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::convert::TryInto;
-use std::fs::File;
+// use std::fs::File;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
+
+use crate::File;
 
 // Regions have a maximum size of 4GiB. A `4GiB - overhead` value is the largest that can be represented,
 // because the leaf node format uses 32bit offsets

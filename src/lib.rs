@@ -95,3 +95,7 @@ fn create_tempfile() -> tempfile::NamedTempFile {
         tempfile::NamedTempFile::new().unwrap()
     }
 }
+
+
+mod uqfile;
+pub use uqfile::{File, OpenOptions};
