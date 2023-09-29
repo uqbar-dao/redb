@@ -92,15 +92,15 @@ impl<'a, 'b, K: RedbKey, V: RedbValue> MutateHelper<'a, 'b, K, V> {
         }
     }
 
-    pub(crate) fn delete(&mut self, key: &K::SelfType<'_>) -> Result<Option<AccessGuard<'a, V>>> {
+    pub(crate) async fn delete(&mut self, key: &K::SelfType<'_>) -> Result<Option<AccessGuard<'a, V>>> {
         if let Some((p, checksum)) = *self.root {
             let (deletion_result, found) =
-                self.delete_helper(self.mem.get_page(p)?, checksum, K::as_bytes(key).as_ref())?;
+                self.delete_helper(self.mem.get_page(p).await?, checksum, K::as_bytes(key).as_ref()).await?;
             let new_root = match deletion_result {
                 Subtree(page, checksum) => Some((page, checksum)),
                 DeletedLeaf => None,
                 PartialLeaf { deleted_pair } => {
-                    let page = self.mem.get_page(p)?;
+                    let page = self.mem.get_page(p).await?;
                     let accessor =
                         LeafAccessor::new(page.memory(), K::fixed_width(), V::fixed_width());
                     let mut builder = LeafBuilder::new(
@@ -124,14 +124,14 @@ impl<'a, 'b, K: RedbKey, V: RedbValue> MutateHelper<'a, 'b, K, V> {
     }
 
     #[allow(clippy::type_complexity)]
-    pub(crate) fn insert(
+    pub(crate) async fn insert(
         &mut self,
         key: &K::SelfType<'_>,
         value: &V::SelfType<'_>,
     ) -> Result<(Option<AccessGuard<'a, V>>, AccessGuardMut<'a, V>)> {
         let (new_root, old_value, guard) = if let Some((p, checksum)) = *self.root {
             let result = self.insert_helper(
-                self.mem.get_page(p)?,
+                self.mem.get_page(p).await?,
                 checksum,
                 K::as_bytes(key).as_ref(),
                 V::as_bytes(value).as_ref(),
@@ -168,7 +168,7 @@ impl<'a, 'b, K: RedbKey, V: RedbValue> MutateHelper<'a, 'b, K, V> {
         Ok((old_value, guard))
     }
 
-    fn insert_helper(
+    async fn insert_helper(
         &mut self,
         page: PageImpl<'a>,
         page_checksum: Checksum,
@@ -374,7 +374,7 @@ impl<'a, 'b, K: RedbKey, V: RedbValue> MutateHelper<'a, 'b, K, V> {
                 let (child_index, child_page) = accessor.child_for_key::<K>(key);
                 let child_checksum = accessor.child_checksum(child_index).unwrap();
                 let sub_result =
-                    self.insert_helper(self.mem.get_page(child_page)?, child_checksum, key, value)?;
+                    self.insert_helper(self.mem.get_page(child_page).await?, child_checksum, key, value)?;
 
                 if sub_result.additional_sibling.is_none()
                     && self.modify_uncommitted
@@ -573,7 +573,7 @@ impl<'a, 'b, K: RedbKey, V: RedbValue> MutateHelper<'a, 'b, K, V> {
         Ok(result)
     }
 
-    fn delete_branch_helper(
+    async fn delete_branch_helper(
         &mut self,
         page: PageImpl<'a>,
         checksum: Checksum,
@@ -584,7 +584,7 @@ impl<'a, 'b, K: RedbKey, V: RedbValue> MutateHelper<'a, 'b, K, V> {
         let (child_index, child_page_number) = accessor.child_for_key::<K>(key);
         let child_checksum = accessor.child_checksum(child_index).unwrap();
         let (result, found) =
-            self.delete_helper(self.mem.get_page(child_page_number)?, child_checksum, key)?;
+            self.delete_helper(self.mem.get_page(child_page_number).await?, child_checksum, key).await?;
         if found.is_none() {
             return Ok((Subtree(original_page_number, checksum), None));
         }
@@ -641,7 +641,7 @@ impl<'a, 'b, K: RedbKey, V: RedbValue> MutateHelper<'a, 'b, K, V> {
                 self.finalize_branch_builder(builder)?
             }
             PartialLeaf { deleted_pair } => {
-                let partial_child_page = self.mem.get_page(child_page_number)?;
+                let partial_child_page = self.mem.get_page(child_page_number).await?;
                 let partial_child_accessor = LeafAccessor::new(
                     partial_child_page.memory(),
                     K::fixed_width(),
@@ -653,7 +653,7 @@ impl<'a, 'b, K: RedbKey, V: RedbValue> MutateHelper<'a, 'b, K, V> {
                 debug_assert!(merge_with < accessor.count_children());
                 let merge_with_page = self
                     .mem
-                    .get_page(accessor.child_page(merge_with).unwrap())?;
+                    .get_page(accessor.child_page(merge_with).unwrap()).await?;
                 let merge_with_accessor =
                     LeafAccessor::new(merge_with_page.memory(), K::fixed_width(), V::fixed_width());
 
@@ -741,7 +741,7 @@ impl<'a, 'b, K: RedbKey, V: RedbValue> MutateHelper<'a, 'b, K, V> {
                 let merge_with = if child_index == 0 { 1 } else { child_index - 1 };
                 let merge_with_page = self
                     .mem
-                    .get_page(accessor.child_page(merge_with).unwrap())?;
+                    .get_page(accessor.child_page(merge_with).unwrap()).await?;
                 let merge_with_accessor = BranchAccessor::new(&merge_with_page, K::fixed_width());
                 debug_assert!(merge_with < accessor.count_children());
                 for i in 0..accessor.count_children() {
@@ -869,7 +869,7 @@ impl<'a, 'b, K: RedbKey, V: RedbValue> MutateHelper<'a, 'b, K, V> {
 
     // Returns the page number of the sub-tree with this key deleted, or None if the sub-tree is empty.
     // If key is not found, guaranteed not to modify the tree
-    fn delete_helper(
+    async fn delete_helper(
         &mut self,
         page: PageImpl<'a>,
         checksum: Checksum,
@@ -878,7 +878,7 @@ impl<'a, 'b, K: RedbKey, V: RedbValue> MutateHelper<'a, 'b, K, V> {
         let node_mem = page.memory();
         match node_mem[0] {
             LEAF => self.delete_leaf_helper(page, checksum, key),
-            BRANCH => self.delete_branch_helper(page, checksum, key),
+            BRANCH => self.delete_branch_helper(page, checksum, key).await,
             _ => unreachable!(),
         }
     }

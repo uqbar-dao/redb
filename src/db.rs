@@ -27,6 +27,7 @@ use crate::transactions::SAVEPOINT_TABLE;
 use log::{info, warn};
 
 use crate::{File, OpenOptions};
+use crate::kernel_types::{MessageReceiver, MessageSender};
 
 struct AtomicTransactionId {
     inner: AtomicU64,
@@ -596,7 +597,7 @@ impl Database {
         Ok(())
     }
 
-    fn new(
+    async fn new(
         file: File,
         page_size: usize,
         region_size: Option<u64>,
@@ -613,7 +614,7 @@ impl Database {
             region_size,
             read_cache_size_bytes,
             write_cache_size_bytes,
-        )?;
+        ).await?;
         if mem.needs_repair()? {
             #[cfg(feature = "logging")]
             warn!("Database {:?} not shutdown cleanly. Repairing", &file_path);
@@ -774,12 +775,19 @@ impl Builder {
     /// * if the file does not exist, or is an empty file, a new database will be initialized in it
     /// * if the file is a valid redb database, it will be opened
     /// * otherwise this function will return an error
-    pub fn create(&self, path: impl AsRef<Path>) -> Result<Database, DatabaseError> {
+    pub async fn create(
+        &self,
+        path: impl AsRef<Path>,
+        receiver: MessageReceiver,
+        sender: MessageSender,
+    ) -> Result<Database, DatabaseError> {
         let file = OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
-            .open(path)?;
+            .receiver(receiver)
+            .sender(sender)
+            .open(path).await?;
 
         Database::new(
             file,
@@ -787,12 +795,22 @@ impl Builder {
             self.region_size,
             self.read_cache_size_bytes,
             self.write_cache_size_bytes,
-        )
+        ).await
     }
 
     /// Opens an existing redb database.
-    pub fn open(&self, path: impl AsRef<Path>) -> Result<Database, DatabaseError> {
-        let file = OpenOptions::new().read(true).write(true).open(path)?;
+    pub async fn open(
+        &self,
+        path: impl AsRef<Path>,
+        receiver: MessageReceiver,
+        sender: MessageSender,
+    ) -> Result<Database, DatabaseError> {
+        let file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .receiver(receiver)
+            .sender(sender)
+            .open(path)?;
 
         if file.metadata()?.len() == 0 {
             return Err(StorageError::Io(ErrorKind::InvalidData.into()).into());
@@ -804,20 +822,20 @@ impl Builder {
             None,
             self.read_cache_size_bytes,
             self.write_cache_size_bytes,
-        )
+        ).await
     }
 
     /// Open an existing or create a new database in the given `file`.
     ///
     /// The file must be empty or contain a valid database.
-    pub fn create_file(&self, file: File) -> Result<Database, DatabaseError> {
+    pub async fn create_file(&self, file: File) -> Result<Database, DatabaseError> {
         Database::new(
             file,
             self.page_size,
             self.region_size,
             self.read_cache_size_bytes,
             self.write_cache_size_bytes,
-        )
+        ).await
     }
 }
 

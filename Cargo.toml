@@ -21,6 +21,8 @@ pyo3-build-config = "0.19.0"
 libc = "0.2.104"
 log = {version = "0.4.17", optional = true }
 pyo3 = {version = "0.19.0", features=["extension-module", "abi3-py37"], optional = true }
+serde_json = "1.0"
+rand = "0.8"
 
 # Common test/bench dependencies
 [dev-dependencies]
@@ -28,6 +30,7 @@ rand = "0.8"
 tempfile = "3.5.0"
 # for backwards compatibility testing - pin at 1.0.0
 redb1 = { version = "=1.0.0", package = "redb" }
+serde_json = "1.0"
 
 # Just benchmarking dependencies
 [target.'cfg(not(target_os = "wasi"))'.dev-dependencies]

@@ -49,14 +49,14 @@ impl LockedFile {
         &self.file
     }
 
-    pub(crate) fn read(&self, offset: u64, len: usize) -> Result<Vec<u8>, io::Error> {
+    pub(crate) async fn read(&self, offset: u64, len: usize) -> Result<Vec<u8>, io::Error> {
         let mut buffer = vec![0; len];
-        self.file.read_exact_at(&mut buffer, offset)?;
+        self.file.read_exact_at(&mut buffer, offset).await?;
         Ok(buffer)
     }
 
-    pub(crate) fn write(&self, offset: u64, data: &[u8]) -> Result<(), io::Error> {
-        self.file.write_all_at(data, offset)
+    pub(crate) async fn write(&self, offset: u64, data: &[u8]) -> Result<(), io::Error> {
+        self.file.write_all_at(data, offset).await
     }
 }
 

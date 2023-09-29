@@ -137,7 +137,7 @@ impl Allocators {
         }
     }
 
-    pub(super) fn from_bytes(header: &DatabaseHeader, storage: &PagedCachedFile) -> Result<Self> {
+    pub(super) async fn from_bytes(header: &DatabaseHeader, storage: &PagedCachedFile) -> Result<Self> {
         let page_size = header.page_size();
         let region_header_size =
             header.layout().full_region_layout().get_header_pages() * page_size;
@@ -151,7 +151,7 @@ impl Allocators {
             page_size,
         );
         let len: usize = (range.end - range.start).try_into().unwrap();
-        let region_tracker = storage.read_direct(range.start, len)?;
+        let region_tracker = storage.read_direct(range.start, len).await?;
         let mut region_allocators = vec![];
         let layout = header.layout();
         for i in 0..layout.num_regions() {
@@ -163,7 +163,7 @@ impl Allocators {
                 .try_into()
                 .unwrap();
 
-            let mem = storage.read_direct(base, header_len)?;
+            let mem = storage.read_direct(base, header_len).await?;
             region_allocators.push(RegionHeader::deserialize(&mem));
         }
 
@@ -173,7 +173,7 @@ impl Allocators {
         })
     }
 
-    pub(super) fn flush_to(
+    pub(super) async fn flush_to(
         &self,
         region_tracker_page: PageNumber,
         layout: DatabaseLayout,
@@ -192,7 +192,7 @@ impl Allocators {
                 page_size,
             );
             let len: usize = (range.end - range.start).try_into().unwrap();
-            storage.write(range.start, len, false, |_| CachePriority::High)?
+            storage.write(range.start, len, false, |_| CachePriority::High).await?
         };
         let tracker_bytes = self.region_tracker.to_vec();
         region_tracker_mem.mem_mut()[..tracker_bytes.len()].copy_from_slice(&tracker_bytes);
@@ -207,7 +207,7 @@ impl Allocators {
                 .try_into()
                 .unwrap();
 
-            let mut mem = storage.write(base, len, false, |_| CachePriority::High)?;
+            let mut mem = storage.write(base, len, false, |_| CachePriority::High).await?;
             RegionHeader::serialize(&self.region_allocators[i as usize], mem.mem_mut());
         }
 

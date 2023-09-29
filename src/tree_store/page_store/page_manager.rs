@@ -52,11 +52,11 @@ struct InMemoryState {
 }
 
 impl InMemoryState {
-    fn from_bytes(header: DatabaseHeader, file: &PagedCachedFile) -> Result<Self> {
+    async fn from_bytes(header: DatabaseHeader, file: &PagedCachedFile) -> Result<Self> {
         let allocators = if header.recovery_required {
             Allocators::new(header.layout())
         } else {
-            Allocators::from_bytes(&header, file)?
+            Allocators::from_bytes(&header, file).await?
         };
         Ok(Self { header, allocators })
     }
@@ -99,7 +99,7 @@ pub(crate) struct TransactionalMemory {
 
 impl TransactionalMemory {
     #[allow(clippy::too_many_arguments)]
-    pub(crate) fn new(
+    pub(crate) async fn new(
         file: File,
         page_size: usize,
         requested_region_size: Option<u64>,
@@ -117,7 +117,7 @@ impl TransactionalMemory {
             page_size as u64,
             read_cache_size_bytes,
             write_cache_size_bytes,
-        )?;
+        ).await?;
 
         let magic_number: [u8; MAGICNUMBER.len()] =
             if storage.raw_file_len()? >= MAGICNUMBER.len() as u64 {
@@ -125,6 +125,7 @@ impl TransactionalMemory {
                     .read_direct(0, MAGICNUMBER.len())?
                     .try_into()
                     .unwrap()
+                    .await
             } else {
                 [0; MAGICNUMBER.len()]
             };
@@ -191,7 +192,7 @@ impl TransactionalMemory {
                 .copy_from_slice(&header.to_bytes(true, false));
             storage.flush()?;
         }
-        let header_bytes = storage.read_direct(0, DB_HEADER_SIZE)?;
+        let header_bytes = storage.read_direct(0, DB_HEADER_SIZE).await?;
         let (mut header, repair_info) = DatabaseHeader::from_bytes(&header_bytes);
 
         assert_eq!(header.page_size() as usize, page_size);
@@ -283,13 +284,13 @@ impl TransactionalMemory {
         self.storage.invalidate_cache_all()
     }
 
-    pub(crate) fn clear_cache_and_reload(&mut self) -> Result {
+    pub(crate) async fn clear_cache_and_reload(&mut self) -> Result {
         assert!(self.allocated_since_commit.lock().unwrap().is_empty());
 
         self.storage.flush()?;
         self.storage.invalidate_cache_all();
 
-        let header_bytes = self.storage.read_direct(0, DB_HEADER_SIZE)?;
+        let header_bytes = self.storage.read_direct(0, DB_HEADER_SIZE).await?;
         let (mut header, repair_info) = DatabaseHeader::from_bytes(&header_bytes);
         // TODO: should probably consolidate this logic with Self::new()
         if header.recovery_required {
@@ -383,9 +384,9 @@ impl TransactionalMemory {
         Ok(())
     }
 
-    fn write_header(&self, header: &DatabaseHeader, swap_primary: bool) -> Result {
+    async fn write_header(&self, header: &DatabaseHeader, swap_primary: bool) -> Result {
         self.storage
-            .write(0, DB_HEADER_SIZE, true, |_| CachePriority::High)?
+            .write(0, DB_HEADER_SIZE, true, |_| CachePriority::High).await?
             .mem_mut()
             .copy_from_slice(&header.to_bytes(true, swap_primary));
 
@@ -644,11 +645,11 @@ impl TransactionalMemory {
     }
 
     // TODO: make all callers explicitly provide a hint
-    pub(crate) fn get_page(&self, page_number: PageNumber) -> Result<PageImpl> {
-        self.get_page_extended(page_number, PageHint::None)
+    pub(crate) async fn get_page(&self, page_number: PageNumber) -> Result<PageImpl> {
+        self.get_page_extended(page_number, PageHint::None).await
     }
 
-    pub(crate) fn get_page_extended(
+    pub(crate) async fn get_page_extended(
         &self,
         page_number: PageNumber,
         hint: PageHint,
@@ -677,7 +678,8 @@ impl TransactionalMemory {
         let len: usize = (range.end - range.start).try_into().unwrap();
         let mem = self
             .storage
-            .read(range.start, len, hint, CachePriority::default_btree)?;
+            .read(range.start, len, hint, CachePriority::default_btree)
+            .await?;
 
         Ok(PageImpl {
             mem,
@@ -822,7 +824,7 @@ impl TransactionalMemory {
         self.allocated_since_commit.lock().unwrap().contains(&page)
     }
 
-    pub(crate) fn allocate_helper(
+    pub(crate) async fn allocate_helper(
         &self,
         allocation_size: usize,
         lowest: bool,
@@ -874,7 +876,8 @@ impl TransactionalMemory {
         #[allow(unused_mut)]
         let mut mem = self
             .storage
-            .write(address_range.start, len, true, |_| priority)?;
+            .write(address_range.start, len, true, |_| priority)
+            .await?;
         debug_assert!(mem.mem().len() >= allocation_size);
 
         #[cfg(debug_assertions)]

@@ -246,7 +246,7 @@ pub(super) struct PagedCachedFile {
 }
 
 impl PagedCachedFile {
-    pub(super) fn new(
+    pub(super) async fn new(
         file: File,
         page_size: u64,
         max_read_cache_bytes: usize,
@@ -286,7 +286,7 @@ impl PagedCachedFile {
     }
 
     pub(crate) fn raw_file_len(&self) -> Result<u64> {
-        Ok(self.file.file().metadata()?.len())
+        Ok(self.file.file().metadata()?.len().await)
     }
 
     #[cfg(any(fuzzing, test))]
@@ -313,7 +313,7 @@ impl PagedCachedFile {
         self.fsync_failed.store(failed, Ordering::Release);
     }
 
-    fn flush_write_buffer(&self) -> Result {
+    async fn flush_write_buffer(&self) -> Result {
         #[cfg(any(fuzzing, test))]
         {
             if self.crash_countdown.load(Ordering::Acquire) == 0 {
@@ -324,10 +324,10 @@ impl PagedCachedFile {
         let mut write_buffer = self.write_buffer.lock().unwrap();
 
         for (offset, buffer) in write_buffer.cache.iter() {
-            self.file.write(*offset, buffer.as_ref().unwrap())?;
+            self.file.write(*offset, buffer.as_ref().unwrap()).await?;
         }
         for (offset, buffer) in write_buffer.low_pri_cache.iter() {
-            self.file.write(*offset, buffer.as_ref().unwrap())?;
+            self.file.write(*offset, buffer.as_ref().unwrap()).await?;
         }
         self.write_buffer_bytes.store(0, Ordering::Release);
         write_buffer.clear();
@@ -340,12 +340,12 @@ impl PagedCachedFile {
         // TODO: be more fine-grained about this invalidation
         self.invalidate_cache_all();
 
-        self.file.file().set_len(len).map_err(StorageError::from)
+        self.file.file().set_len(len).await.map_err(StorageError::from)
     }
 
-    pub(super) fn flush(&self) -> Result {
+    pub(super) async fn flush(&self) -> Result {
         self.check_fsync_failure()?;
-        self.flush_write_buffer()?;
+        self.flush_write_buffer().await?;
         // Disable fsync when fuzzing, since it doesn't test crash consistency
         #[cfg(not(fuzzing))]
         {
@@ -391,12 +391,12 @@ impl PagedCachedFile {
     }
 
     // Make writes visible to readers, but does not guarantee any durability
-    pub(super) fn write_barrier(&self) -> Result {
-        self.flush_write_buffer()
+    pub(super) async fn write_barrier(&self) -> Result {
+        self.flush_write_buffer().await
     }
 
     // Read directly from the file, ignoring any cached data
-    pub(super) fn read_direct(&self, offset: u64, len: usize) -> Result<Vec<u8>> {
+    pub(super) async fn read_direct(&self, offset: u64, len: usize) -> Result<Vec<u8>> {
         #[cfg(any(fuzzing, test))]
         {
             if self.crash_countdown.load(Ordering::Acquire) == 0 {
@@ -404,12 +404,12 @@ impl PagedCachedFile {
             }
         }
         self.check_fsync_failure()?;
-        Ok(self.file.read(offset, len)?)
+        Ok(self.file.read(offset, len).await?)
     }
 
     // Read with caching. Caller must not read overlapping ranges without first calling invalidate_cache().
     // Doing so will not cause UB, but is a logic error.
-    pub(super) fn read(
+    pub(super) async fn read(
         &self,
         offset: u64,
         len: usize,
@@ -442,7 +442,7 @@ impl PagedCachedFile {
             }
         }
 
-        let buffer = Arc::new(self.read_direct(offset, len)?);
+        let buffer = Arc::new(self.read_direct(offset, len).await?);
         let cache_size = self.read_cache_bytes.fetch_add(len, Ordering::AcqRel);
         let mut write_lock = self.read_cache[cache_slot].write().unwrap();
         write_lock.insert(offset, buffer.clone(), cache_policy(&buffer));
@@ -497,7 +497,7 @@ impl PagedCachedFile {
 
     // If overwrite is true, the page is initialized to zero
     // cache_policy takes the existing data as an argument and returns the priority. The priority should be stable and not change after WritablePage is dropped
-    pub(super) fn write(
+    pub(super) async fn write(
         &self,
         offset: u64,
         len: usize,
@@ -543,7 +543,7 @@ impl PagedCachedFile {
                 while removed_bytes < len {
                     if let Some((offset, buffer, removed_priority)) = lock.pop_lowest_priority() {
                         let removed_len = buffer.len();
-                        let result = self.file.write(offset, &buffer);
+                        let result = self.file.write(offset, &buffer).await;
                         if result.is_err() {
                             lock.insert(offset, buffer, removed_priority);
                         }
@@ -561,7 +561,7 @@ impl PagedCachedFile {
             } else if overwrite {
                 vec![0; len]
             } else {
-                self.read_direct(offset, len)?
+                self.read_direct(offset, len).await?
             };
             let priority = cache_policy(&result);
             lock.insert(offset, Arc::new(result), priority);
