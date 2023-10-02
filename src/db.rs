@@ -11,7 +11,7 @@ use crate::{
 };
 use crate::{ReadTransaction, Result, WriteTransaction};
 use std::fmt::{Display, Formatter};
-use std::fs::{File, OpenOptions};
+// use std::fs::{File, OpenOptions};
 use std::io::ErrorKind;
 use std::marker::PhantomData;
 use std::ops::RangeFull;
@@ -25,6 +25,9 @@ use crate::sealed::Sealed;
 use crate::transactions::SAVEPOINT_TABLE;
 #[cfg(feature = "logging")]
 use log::{info, warn};
+
+use crate::{File, OpenOptions};
+use crate::kernel_types::{Address, Message, MessageReceiver, MessageSender, NetworkError, Payload};
 
 struct AtomicTransactionId {
     inner: AtomicU64,
@@ -245,13 +248,33 @@ impl Database {
     /// * if the file does not exist, or is an empty file, a new database will be initialized in it
     /// * if the file is a valid redb database, it will be opened
     /// * otherwise this function will return an error
-    pub fn create(path: impl AsRef<Path>) -> Result<Database, DatabaseError> {
-        Self::builder().create(path)
+    pub fn create(
+        path: impl AsRef<Path>,
+        identifier: String,
+        get_payload: fn() -> Option<Payload>,
+        send_and_await_response: fn(&Address, bool, Option<String>, Option<String>, Option<&Payload>) -> Result<(Address, Message), NetworkError>,
+    ) -> Result<Database, DatabaseError> {
+        Self::builder().create(
+            path,
+            identifier,
+            get_payload,
+            send_and_await_response,
+        )
     }
 
     /// Opens an existing redb database.
-    pub fn open(path: impl AsRef<Path>) -> Result<Database, DatabaseError> {
-        Self::builder().open(path)
+    pub fn open(
+        path: impl AsRef<Path>,
+        identifier: String,
+        get_payload: fn() -> Option<Payload>,
+        send_and_await_response: fn(&Address, bool, Option<String>, Option<String>, Option<&Payload>) -> Result<(Address, Message), NetworkError>,
+    ) -> Result<Database, DatabaseError> {
+        Self::builder().open(
+            path,
+            identifier,
+            get_payload,
+            send_and_await_response,
+        )
     }
 
     pub(crate) fn start_write_transaction(&self) -> TransactionId {
@@ -772,12 +795,21 @@ impl Builder {
     /// * if the file does not exist, or is an empty file, a new database will be initialized in it
     /// * if the file is a valid redb database, it will be opened
     /// * otherwise this function will return an error
-    pub fn create(&self, path: impl AsRef<Path>) -> Result<Database, DatabaseError> {
+    pub fn create(
+        &self,
+        path: impl AsRef<Path>,
+        identifier: String,
+        get_payload: fn() -> Option<Payload>,
+        send_and_await_response: fn(&Address, bool, Option<String>, Option<String>, Option<&Payload>) -> Result<(Address, Message), NetworkError>,
+    ) -> Result<Database, DatabaseError> {
         let file = OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
-            .open(path)?;
+            .identifier(identifier)
+            .get_payload(get_payload)
+            .send_and_await_response(send_and_await_response)
+            .open(path.as_ref().to_str().unwrap().into())?;
 
         Database::new(
             file,
@@ -789,8 +821,20 @@ impl Builder {
     }
 
     /// Opens an existing redb database.
-    pub fn open(&self, path: impl AsRef<Path>) -> Result<Database, DatabaseError> {
-        let file = OpenOptions::new().read(true).write(true).open(path)?;
+    pub fn open(
+        &self,
+        path: impl AsRef<Path>,
+        identifier: String,
+        get_payload: fn() -> Option<Payload>,
+        send_and_await_response: fn(&Address, bool, Option<String>, Option<String>, Option<&Payload>) -> Result<(Address, Message), NetworkError>,
+    ) -> Result<Database, DatabaseError> {
+        let file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .identifier(identifier)
+            .get_payload(get_payload)
+            .send_and_await_response(send_and_await_response)
+            .open(path.as_ref().to_str().unwrap().into())?;
 
         if file.metadata()?.len() == 0 {
             return Err(StorageError::Io(ErrorKind::InvalidData.into()).into());

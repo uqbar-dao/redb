@@ -414,9 +414,11 @@ mod test {
     #[cfg(not(target_os = "windows"))]
     use crate::StorageError;
     use crate::{Database, ReadableTable};
-    use std::fs::OpenOptions;
+    // use std::fs::OpenOptions;
     use std::io::{Read, Seek, SeekFrom, Write};
     use std::mem::size_of;
+
+    use crate::OpenOptions;
 
     const X: TableDefinition<&str, &str> = TableDefinition::new("x");
 

@@ -20,3 +20,5 @@ Cargo.lock
 # Profiling
 perf.data*
 flamegraph.svg
+
+*.swp

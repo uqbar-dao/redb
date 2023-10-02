@@ -6,8 +6,10 @@
 #![cfg_attr(target_os = "wasi", allow(unused_imports))]
 
 use crate::{DatabaseError, Result};
-use std::fs::File;
+// use std::fs::File;
 use std::io;
+
+use crate::File;
 
 #[cfg(unix)]
 use std::os::unix::{fs::FileExt, io::AsRawFd};
