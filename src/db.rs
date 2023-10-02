@@ -251,8 +251,8 @@ impl Database {
     pub fn create(
         path: impl AsRef<Path>,
         identifier: String,
-        get_payload: fn() -> Option<Payload>,
-        send_and_await_response: fn(&Address, bool, Option<String>, Option<String>, Option<&Payload>) -> Result<(Address, Message), NetworkError>,
+        get_payload: fn() -> Option<(Option<String>, Vec<u8>)>,
+        send_and_await_response: fn(String, Result<u64, String>, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>) -> ((String, Result<u64, String>), Result<(Option<String>, Option<String>), (String, Option<String>)>),
     ) -> Result<Database, DatabaseError> {
         Self::builder().create(
             path,
@@ -266,8 +266,8 @@ impl Database {
     pub fn open(
         path: impl AsRef<Path>,
         identifier: String,
-        get_payload: fn() -> Option<Payload>,
-        send_and_await_response: fn(&Address, bool, Option<String>, Option<String>, Option<&Payload>) -> Result<(Address, Message), NetworkError>,
+        get_payload: fn() -> Option<(Option<String>, Vec<u8>)>,
+        send_and_await_response: fn(String, Result<u64, String>, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>) -> ((String, Result<u64, String>), Result<(Option<String>, Option<String>), (String, Option<String>)>),
     ) -> Result<Database, DatabaseError> {
         Self::builder().open(
             path,
@@ -799,8 +799,8 @@ impl Builder {
         &self,
         path: impl AsRef<Path>,
         identifier: String,
-        get_payload: fn() -> Option<Payload>,
-        send_and_await_response: fn(&Address, bool, Option<String>, Option<String>, Option<&Payload>) -> Result<(Address, Message), NetworkError>,
+        get_payload: fn() -> Option<(Option<String>, Vec<u8>)>,
+        send_and_await_response: fn(String, Result<u64, String>, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>) -> ((String, Result<u64, String>), Result<(Option<String>, Option<String>), (String, Option<String>)>),
     ) -> Result<Database, DatabaseError> {
         let file = OpenOptions::new()
             .read(true)
@@ -825,8 +825,8 @@ impl Builder {
         &self,
         path: impl AsRef<Path>,
         identifier: String,
-        get_payload: fn() -> Option<Payload>,
-        send_and_await_response: fn(&Address, bool, Option<String>, Option<String>, Option<&Payload>) -> Result<(Address, Message), NetworkError>,
+        get_payload: fn() -> Option<(Option<String>, Vec<u8>)>,
+        send_and_await_response: fn(String, Result<u64, String>, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>) -> ((String, Result<u64, String>), Result<(Option<String>, Option<String>), (String, Option<String>)>),
     ) -> Result<Database, DatabaseError> {
         let file = OpenOptions::new()
             .read(true)

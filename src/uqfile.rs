@@ -4,25 +4,22 @@ pub struct Metadata {
     our_node: String,
     path: String,
     identifier: String,
-    send_and_await_response: fn(&Address, bool, Option<String>, Option<String>, Option<&Payload>) -> Result<(Address, Message), NetworkError>,
+    send_and_await_response: fn(String, Result<u64, String>, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>) -> ((String, Result<u64, String>), Result<(Option<String>, Option<String>), (String, Option<String>)>),
 }
 
 impl Metadata {
     pub fn len(self) -> u64 {
         let (_, response) = (self.send_and_await_response)(
-            &Address {
-                node: self.our_node.clone(),
-                process: ProcessId::Name("vfs".into()),
-            },
-            true,  //  TODO: ?
+            self.our_node.clone(),
+            Err("vfs".into()),
             Some(serde_json::to_string(&VfsRequest::GetEntryLength {
                 identifier: self.identifier.clone(),
                 full_path: self.path.clone(),
             }).unwrap()),
             None,
             None,
-        ).unwrap();
-        let Message::Response((Ok(Response { ipc, metadata: _ }), None)) =
+        );
+        let Ok((ipc, _)) =
             response
         else {
             panic!("");
@@ -42,8 +39,8 @@ pub struct File {
     our_node: String,
     path: String,
     identifier: String,
-    get_payload: fn() -> Option<Payload>,
-    send_and_await_response: fn(&Address, bool, Option<String>, Option<String>, Option<&Payload>) -> Result<(Address, Message), NetworkError>,
+    get_payload: fn() -> Option<(Option<String>, Vec<u8>)>,
+    send_and_await_response: fn(String, Result<u64, String>, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>) -> ((String, Result<u64, String>), Result<(Option<String>, Option<String>), (String, Option<String>)>),
 }
 
 impl File {
@@ -58,12 +55,9 @@ impl File {
     pub fn read_exact_at(&self, buf: &mut [u8], offset: u64) -> std::io::Result<()> {
         let length = buf.len();
 
-        let _ = (self.send_and_await_response)(
-            &Address {
-                node: self.our_node.clone(),
-                process: ProcessId::Name("vfs".into()),
-            },
-            true,  //  TODO: ?
+        let (_, response) = (self.send_and_await_response)(
+            self.our_node.clone(),
+            Err("vfs".into()),
             Some(serde_json::to_string(&VfsRequest::GetFileChunk {
                 identifier: self.identifier.clone(),
                 full_path: self.path.clone(),
@@ -72,21 +66,23 @@ impl File {
             }).unwrap()),
             None,
             None,
-        ).unwrap();
+        );
+        let Ok(_) =
+            response
+        else {
+            panic!("");
+        };
         let payload = (self.get_payload)();
-        let Some(Payload { mime: _, bytes }) = payload else {
+        let Some((_, bytes)) = payload else {
             panic!("");
         };
         buf.copy_from_slice(&bytes[..buf.len()]);
         Ok(())
     }
     pub fn set_len(&self, size: u64) -> std::io::Result<()> {
-        let _ = (self.send_and_await_response)(
-            &Address {
-                node: self.our_node.clone(),
-                process: ProcessId::Name("vfs".into()),
-            },
-            true,  //  TODO: ?
+        let (_, response) = (self.send_and_await_response)(
+            self.our_node.clone(),
+            Err("vfs".into()),
             Some(serde_json::to_string(&VfsRequest::SetSize {
                 identifier: self.identifier.clone(),
                 full_path: self.path.clone(),
@@ -94,25 +90,32 @@ impl File {
             }).unwrap()),
             None,
             None,
-        ).unwrap();
+        );
+        let Ok(_) =
+            response
+        else {
+            panic!("");
+        };
         Ok(())
     }
     pub fn sync_data(&self) -> std::io::Result<()> { Ok(()) }
     pub fn write_all_at(&self, buf: &[u8], offset: u64) -> std::io::Result<()> {
-        let _ = (self.send_and_await_response)(
-            &Address {
-                node: self.our_node.clone(),
-                process: ProcessId::Name("vfs".into()),
-            },
-            true,  //  TODO: ?
+        let (_, response) = (self.send_and_await_response)(
+            self.our_node.clone(),
+            Err("vfs".into()),
             Some(serde_json::to_string(&VfsRequest::WriteOffset {
                 identifier: self.identifier.clone(),
                 full_path: self.path.clone(),
                 offset,
             }).unwrap()),
             None,
-            Some(&Payload { mime: None, bytes: buf.to_vec() }),
-        ).unwrap();
+            None,
+        );
+        let Ok(_) =
+            response
+        else {
+            panic!("");
+        };
         Ok(())
     }
 }
@@ -121,8 +124,8 @@ pub struct OpenOptions {
     our_node: Option<String>,
     create: bool,
     identifier: Option<String>,
-    get_payload: Option<fn() -> Option<Payload>>,
-    send_and_await_response: Option<fn(&Address, bool, Option<String>, Option<String>, Option<&Payload>) -> Result<(Address, Message), NetworkError>>,
+    get_payload: Option<fn() -> Option<(Option<String>, Vec<u8>)>>,
+    send_and_await_response: Option<fn(String, Result<u64, String>, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>) -> ((String, Result<u64, String>), Result<(Option<String>, Option<String>), (String, Option<String>)>)>,
 }
 
 impl OpenOptions {
@@ -146,11 +149,14 @@ impl OpenOptions {
         self.identifier = Some(identifier);
         self
     }
-    pub fn get_payload(mut self, get_payload: fn() -> Option<Payload>) -> Self {
+    pub fn get_payload(mut self, get_payload: fn() -> Option<(Option<String>, Vec<u8>)>) -> Self {
         self.get_payload = Some(get_payload);
         self
     }
-    pub fn send_and_await_response(mut self, send_and_await_response: fn(&Address, bool, Option<String>, Option<String>, Option<&Payload>) -> Result<(Address, Message), NetworkError>) -> Self {
+    pub fn send_and_await_response(
+        mut self,
+        send_and_await_response: fn(String, Result<u64, String>, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>) -> ((String, Result<u64, String>), Result<(Option<String>, Option<String>), (String, Option<String>)>),
+    ) -> Self {
         self.send_and_await_response = Some(send_and_await_response);
         self
     }
@@ -169,18 +175,20 @@ impl OpenOptions {
         };
         //  does file already exist?
         let (_, response) = send_and_await_response(
-            &Address {
-                node: our_node.clone(),
-                process: ProcessId::Name("vfs".into()),
-            },
-            true,  //  TODO: ?
+            our_node.clone(),
+            Err("vfs".into()),
             Some(serde_json::to_string(&VfsRequest::GetEntry {
                 identifier: identifier.clone(),
                 full_path: path.clone(),
             }).unwrap()),
             None,
             None,
-        ).unwrap();
+        );
+        let Ok(_) =
+            response
+        else {
+            panic!("");
+        };
         let payload = get_payload();
         let is_file_exists = match payload {
             None => false,
@@ -194,19 +202,21 @@ impl OpenOptions {
                 return Err(std::io::Error::from(std::io::ErrorKind::NotFound));
             } else {
                 let (_, response) = send_and_await_response(
-                    &Address {
-                        node: our_node.clone(),
-                        process: ProcessId::Name("vfs".into()),
-                    },
-                    true,  //  TODO: ?
+                    our_node.clone(),
+                    Err("vfs".into()),
                     Some(serde_json::to_string(&VfsRequest::Add {
                         identifier: identifier.clone(),
                         full_path: path.clone(),
                         entry_type: AddEntryType::NewFile,
                     }).unwrap()),
                     None,
-                    Some(&Payload { mime: None, bytes: vec![] }),
-                ).unwrap();
+                    None,
+                );
+                let Ok(_) =
+                    response
+                else {
+                    panic!("");
+                };
                 Ok(File { our_node, path, identifier, get_payload, send_and_await_response })
             }
         }
