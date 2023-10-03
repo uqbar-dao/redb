@@ -27,7 +27,6 @@ use crate::transactions::SAVEPOINT_TABLE;
 use log::{info, warn};
 
 use crate::{File, OpenOptions};
-use crate::kernel_types::{Address, Message, MessageReceiver, MessageSender, NetworkError, Payload};
 
 struct AtomicTransactionId {
     inner: AtomicU64,
@@ -252,7 +251,7 @@ impl Database {
         path: impl AsRef<Path>,
         identifier: String,
         get_payload: fn() -> Option<(Option<String>, Vec<u8>)>,
-        send_and_await_response: fn(String, Result<u64, String>, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>) -> ((String, Result<u64, String>), Result<(Option<String>, Option<String>), (String, Option<String>)>),
+        send_and_await_response: fn(String, Result<u64, String>, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> ((String, Result<u64, String>), (Option<String>, Option<String>)),
     ) -> Result<Database, DatabaseError> {
         Self::builder().create(
             path,
@@ -267,7 +266,7 @@ impl Database {
         path: impl AsRef<Path>,
         identifier: String,
         get_payload: fn() -> Option<(Option<String>, Vec<u8>)>,
-        send_and_await_response: fn(String, Result<u64, String>, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>) -> ((String, Result<u64, String>), Result<(Option<String>, Option<String>), (String, Option<String>)>),
+        send_and_await_response: fn(String, Result<u64, String>, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> ((String, Result<u64, String>), (Option<String>, Option<String>)),
     ) -> Result<Database, DatabaseError> {
         Self::builder().open(
             path,
@@ -800,7 +799,7 @@ impl Builder {
         path: impl AsRef<Path>,
         identifier: String,
         get_payload: fn() -> Option<(Option<String>, Vec<u8>)>,
-        send_and_await_response: fn(String, Result<u64, String>, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>) -> ((String, Result<u64, String>), Result<(Option<String>, Option<String>), (String, Option<String>)>),
+        send_and_await_response: fn(String, Result<u64, String>, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> ((String, Result<u64, String>), (Option<String>, Option<String>)),
     ) -> Result<Database, DatabaseError> {
         let file = OpenOptions::new()
             .read(true)
@@ -826,7 +825,7 @@ impl Builder {
         path: impl AsRef<Path>,
         identifier: String,
         get_payload: fn() -> Option<(Option<String>, Vec<u8>)>,
-        send_and_await_response: fn(String, Result<u64, String>, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>) -> ((String, Result<u64, String>), Result<(Option<String>, Option<String>), (String, Option<String>)>),
+        send_and_await_response: fn(String, Result<u64, String>, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> ((String, Result<u64, String>), (Option<String>, Option<String>)),
     ) -> Result<Database, DatabaseError> {
         let file = OpenOptions::new()
             .read(true)

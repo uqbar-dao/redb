@@ -1,10 +1,10 @@
-use crate::kernel_types::{AddEntryType, Address, KernelMessage, Message, MessageReceiver, MessageSender, NetworkError, Payload, ProcessId, Request, Response, VfsRequest, VfsResponse};
+use crate::kernel_types::{AddEntryType, VfsRequest, VfsResponse};
 
 pub struct Metadata {
     our_node: String,
     path: String,
     identifier: String,
-    send_and_await_response: fn(String, Result<u64, String>, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>) -> ((String, Result<u64, String>), Result<(Option<String>, Option<String>), (String, Option<String>)>),
+    send_and_await_response: fn(String, Result<u64, String>, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> ((String, Result<u64, String>), (Option<String>, Option<String>)),
 }
 
 impl Metadata {
@@ -18,8 +18,9 @@ impl Metadata {
             }).unwrap()),
             None,
             None,
+            15,
         );
-        let Ok((ipc, _)) =
+        let (ipc, _) =
             response
         else {
             panic!("");
@@ -40,7 +41,7 @@ pub struct File {
     path: String,
     identifier: String,
     get_payload: fn() -> Option<(Option<String>, Vec<u8>)>,
-    send_and_await_response: fn(String, Result<u64, String>, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>) -> ((String, Result<u64, String>), Result<(Option<String>, Option<String>), (String, Option<String>)>),
+    send_and_await_response: fn(String, Result<u64, String>, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> ((String, Result<u64, String>), (Option<String>, Option<String>)),
 }
 
 impl File {
@@ -66,12 +67,9 @@ impl File {
             }).unwrap()),
             None,
             None,
+            15,
         );
-        let Ok(_) =
-            response
-        else {
-            panic!("");
-        };
+        //  TODO: check Response is not error
         let payload = (self.get_payload)();
         let Some((_, bytes)) = payload else {
             panic!("");
@@ -90,12 +88,9 @@ impl File {
             }).unwrap()),
             None,
             None,
+            15,
         );
-        let Ok(_) =
-            response
-        else {
-            panic!("");
-        };
+        //  TODO: check Response is not error
         Ok(())
     }
     pub fn sync_data(&self) -> std::io::Result<()> { Ok(()) }
@@ -110,12 +105,9 @@ impl File {
             }).unwrap()),
             None,
             None,
+            15,
         );
-        let Ok(_) =
-            response
-        else {
-            panic!("");
-        };
+        //  TODO: check Response is not error
         Ok(())
     }
 }
@@ -125,7 +117,7 @@ pub struct OpenOptions {
     create: bool,
     identifier: Option<String>,
     get_payload: Option<fn() -> Option<(Option<String>, Vec<u8>)>>,
-    send_and_await_response: Option<fn(String, Result<u64, String>, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>) -> ((String, Result<u64, String>), Result<(Option<String>, Option<String>), (String, Option<String>)>)>,
+    send_and_await_response: Option<fn(String, Result<u64, String>, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> ((String, Result<u64, String>), (Option<String>, Option<String>))>,
 }
 
 impl OpenOptions {
@@ -155,7 +147,7 @@ impl OpenOptions {
     }
     pub fn send_and_await_response(
         mut self,
-        send_and_await_response: fn(String, Result<u64, String>, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>) -> ((String, Result<u64, String>), Result<(Option<String>, Option<String>), (String, Option<String>)>),
+        send_and_await_response: fn(String, Result<u64, String>, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> ((String, Result<u64, String>), (Option<String>, Option<String>)),
     ) -> Self {
         self.send_and_await_response = Some(send_and_await_response);
         self
@@ -183,12 +175,9 @@ impl OpenOptions {
             }).unwrap()),
             None,
             None,
+            15,
         );
-        let Ok(_) =
-            response
-        else {
-            panic!("");
-        };
+        //  TODO: check Response is not error
         let payload = get_payload();
         let is_file_exists = match payload {
             None => false,
@@ -211,12 +200,9 @@ impl OpenOptions {
                     }).unwrap()),
                     None,
                     None,
+                    15,
                 );
-                let Ok(_) =
-                    response
-                else {
-                    panic!("");
-                };
+                //  TODO: check Response is not error
                 Ok(File { our_node, path, identifier, get_payload, send_and_await_response })
             }
         }
