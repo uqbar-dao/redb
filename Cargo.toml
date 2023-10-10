@@ -34,6 +34,7 @@ tempfile = "3.5.0"
 # for backwards compatibility testing - pin at 1.0.0
 redb1 = { version = "=1.0.0", package = "redb" }
 serde_json = "1.0"
+serde = {version = "1.0", features = ["derive"] }
 
 # Just benchmarking dependencies
 [target.'cfg(not(target_os = "wasi"))'.dev-dependencies]

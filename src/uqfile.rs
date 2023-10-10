@@ -1,20 +1,23 @@
-use crate::kernel_types::{AddEntryType, VfsRequest, VfsResponse};
+use crate::kernel_types::{AddEntryType, VfsAction, VfsRequest, VfsResponse};
 
 pub struct Metadata {
     our_node: String,
     path: String,
-    identifier: String,
-    send_and_await_response: fn(String, Result<u64, String>, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> ((String, Result<u64, String>), (Option<String>, Option<String>)),
+    drive: String,
+    send_and_await_response: fn(String, String, String, String, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> (Option<String>, Option<String>),
 }
 
 impl Metadata {
     pub fn len(self) -> u64 {
-        let (_, response) = (self.send_and_await_response)(
+        // let (_, response) = (self.send_and_await_response)(
+        let response = (self.send_and_await_response)(
             self.our_node.clone(),
-            Err("vfs".into()),
-            Some(serde_json::to_string(&VfsRequest::GetEntryLength {
-                identifier: self.identifier.clone(),
-                full_path: self.path.clone(),
+            "vfs".into(),
+            "sys".into(),
+            "uqbar".into(),
+            Some(serde_json::to_string(&VfsRequest {
+                drive: self.drive.clone(),
+                action: VfsAction::GetEntryLength(self.path.clone()),
             }).unwrap()),
             None,
             None,
@@ -28,7 +31,7 @@ impl Metadata {
         let Some::<String>(ipc) = ipc else {
             panic!("");
         };
-        let VfsResponse::GetEntryLength { identifier: _, full_path: _, length } = serde_json::from_str(&ipc).unwrap()
+        let VfsResponse::GetEntryLength(length) = serde_json::from_str(&ipc).unwrap()
         else {
             panic!("");
         };
@@ -39,9 +42,9 @@ impl Metadata {
 pub struct File {
     our_node: String,
     path: String,
-    identifier: String,
+    drive: String,
     get_payload: fn() -> Option<(Option<String>, Vec<u8>)>,
-    send_and_await_response: fn(String, Result<u64, String>, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> ((String, Result<u64, String>), (Option<String>, Option<String>)),
+    send_and_await_response: fn(String, String, String, String, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> (Option<String>, Option<String>),
 }
 
 impl File {
@@ -49,21 +52,25 @@ impl File {
         Ok(Metadata {
             our_node: self.our_node.clone(),
             path: self.path.clone(),
-            identifier: self.identifier.clone(),
+            drive: self.drive.clone(),
             send_and_await_response: self.send_and_await_response,
         })
     }
     pub fn read_exact_at(&self, buf: &mut [u8], offset: u64) -> std::io::Result<()> {
         let length = buf.len();
 
-        let (_, response) = (self.send_and_await_response)(
+        let response = (self.send_and_await_response)(
             self.our_node.clone(),
-            Err("vfs".into()),
-            Some(serde_json::to_string(&VfsRequest::GetFileChunk {
-                identifier: self.identifier.clone(),
-                full_path: self.path.clone(),
-                offset,
-                length: length as u64,
+            "vfs".into(),
+            "sys".into(),
+            "uqbar".into(),
+            Some(serde_json::to_string(&VfsRequest {
+                drive: self.drive.clone(),
+                action: VfsAction::GetFileChunk {
+                    full_path: self.path.clone(),
+                    offset,
+                    length: length as u64,
+                },
             }).unwrap()),
             None,
             None,
@@ -78,13 +85,17 @@ impl File {
         Ok(())
     }
     pub fn set_len(&self, size: u64) -> std::io::Result<()> {
-        let (_, response) = (self.send_and_await_response)(
+        let response = (self.send_and_await_response)(
             self.our_node.clone(),
-            Err("vfs".into()),
-            Some(serde_json::to_string(&VfsRequest::SetSize {
-                identifier: self.identifier.clone(),
-                full_path: self.path.clone(),
-                size
+            "vfs".into(),
+            "sys".into(),
+            "uqbar".into(),
+            Some(serde_json::to_string(&VfsRequest {
+                drive: self.drive.clone(),
+                action: VfsAction::SetSize {
+                    full_path: self.path.clone(),
+                    size,
+                },
             }).unwrap()),
             None,
             None,
@@ -95,13 +106,17 @@ impl File {
     }
     pub fn sync_data(&self) -> std::io::Result<()> { Ok(()) }
     pub fn write_all_at(&self, buf: &[u8], offset: u64) -> std::io::Result<()> {
-        let (_, response) = (self.send_and_await_response)(
+        let response = (self.send_and_await_response)(
             self.our_node.clone(),
-            Err("vfs".into()),
-            Some(serde_json::to_string(&VfsRequest::WriteOffset {
-                identifier: self.identifier.clone(),
-                full_path: self.path.clone(),
-                offset,
+            "vfs".into(),
+            "sys".into(),
+            "uqbar".into(),
+            Some(serde_json::to_string(&VfsRequest {
+                drive: self.drive.clone(),
+                action: VfsAction::WriteOffset {
+                    full_path: self.path.clone(),
+                    offset,
+                },
             }).unwrap()),
             None,
             None,
@@ -115,9 +130,9 @@ impl File {
 pub struct OpenOptions {
     our_node: Option<String>,
     create: bool,
-    identifier: Option<String>,
+    drive: Option<String>,
     get_payload: Option<fn() -> Option<(Option<String>, Vec<u8>)>>,
-    send_and_await_response: Option<fn(String, Result<u64, String>, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> ((String, Result<u64, String>), (Option<String>, Option<String>))>,
+    send_and_await_response: Option<fn(String, String, String, String, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> (Option<String>, Option<String>)>,
 }
 
 impl OpenOptions {
@@ -126,7 +141,7 @@ impl OpenOptions {
         OpenOptions {
             our_node: None,
             create: false,
-            identifier: None,
+            drive: None,
             get_payload: None,
             send_and_await_response: None,
         }
@@ -137,8 +152,8 @@ impl OpenOptions {
     }
     pub fn read(self, b: bool) -> Self { self }
     pub fn write(self, b: bool) -> Self { self }
-    pub fn identifier(mut self, identifier: String) -> Self {
-        self.identifier = Some(identifier);
+    pub fn drive(mut self, drive: String) -> Self {
+        self.drive = Some(drive);
         self
     }
     pub fn get_payload(mut self, get_payload: fn() -> Option<(Option<String>, Vec<u8>)>) -> Self {
@@ -147,13 +162,13 @@ impl OpenOptions {
     }
     pub fn send_and_await_response(
         mut self,
-        send_and_await_response: fn(String, Result<u64, String>, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> ((String, Result<u64, String>), (Option<String>, Option<String>)),
+        send_and_await_response: fn(String, String, String, String, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> (Option<String>, Option<String>),
     ) -> Self {
         self.send_and_await_response = Some(send_and_await_response);
         self
     }
     pub fn open(self, path: String) -> std::io::Result<File> {
-        let Some(identifier) = self.identifier else {
+        let Some(drive) = self.drive else {
             return Err(std::io::Error::from(std::io::ErrorKind::InvalidInput));
         };
         let Some(get_payload) = self.get_payload else {
@@ -166,12 +181,14 @@ impl OpenOptions {
             return Err(std::io::Error::from(std::io::ErrorKind::InvalidInput));
         };
         //  does file already exist?
-        let (_, response) = send_and_await_response(
+        let response = send_and_await_response(
             our_node.clone(),
-            Err("vfs".into()),
-            Some(serde_json::to_string(&VfsRequest::GetEntry {
-                identifier: identifier.clone(),
-                full_path: path.clone(),
+            "vfs".into(),
+            "sys".into(),
+            "uqbar".into(),
+            Some(serde_json::to_string(&VfsRequest {
+                drive: drive.clone(),
+                action: VfsAction::GetEntry(path.clone()),
             }).unwrap()),
             None,
             None,
@@ -185,25 +202,29 @@ impl OpenOptions {
         };
 
         if is_file_exists {
-            Ok(File { our_node, path, identifier, get_payload, send_and_await_response })
+            Ok(File { our_node, path, drive, get_payload, send_and_await_response })
         } else {
             if !self.create {
                 return Err(std::io::Error::from(std::io::ErrorKind::NotFound));
             } else {
-                let (_, response) = send_and_await_response(
+                let response = send_and_await_response(
                     our_node.clone(),
-                    Err("vfs".into()),
-                    Some(serde_json::to_string(&VfsRequest::Add {
-                        identifier: identifier.clone(),
-                        full_path: path.clone(),
-                        entry_type: AddEntryType::NewFile,
+                    "vfs".into(),
+                    "sys".into(),
+                    "uqbar".into(),
+                    Some(serde_json::to_string(&VfsRequest {
+                        drive: drive.clone(),
+                        action: VfsAction::Add {
+                            full_path: path.clone(),
+                            entry_type: AddEntryType::NewFile,
+                        },
                     }).unwrap()),
                     None,
                     None,
                     15,
                 );
                 //  TODO: check Response is not error
-                Ok(File { our_node, path, identifier, get_payload, send_and_await_response })
+                Ok(File { our_node, path, drive, get_payload, send_and_await_response })
             }
         }
     }

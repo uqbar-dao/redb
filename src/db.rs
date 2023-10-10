@@ -249,13 +249,13 @@ impl Database {
     /// * otherwise this function will return an error
     pub fn create(
         path: impl AsRef<Path>,
-        identifier: String,
+        drive: String,
         get_payload: fn() -> Option<(Option<String>, Vec<u8>)>,
-        send_and_await_response: fn(String, Result<u64, String>, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> ((String, Result<u64, String>), (Option<String>, Option<String>)),
+        send_and_await_response: fn(String, String, String, String, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> (Option<String>, Option<String>),
     ) -> Result<Database, DatabaseError> {
         Self::builder().create(
             path,
-            identifier,
+            drive,
             get_payload,
             send_and_await_response,
         )
@@ -264,13 +264,13 @@ impl Database {
     /// Opens an existing redb database.
     pub fn open(
         path: impl AsRef<Path>,
-        identifier: String,
+        drive: String,
         get_payload: fn() -> Option<(Option<String>, Vec<u8>)>,
-        send_and_await_response: fn(String, Result<u64, String>, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> ((String, Result<u64, String>), (Option<String>, Option<String>)),
+        send_and_await_response: fn(String, String, String, String, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> (Option<String>, Option<String>),
     ) -> Result<Database, DatabaseError> {
         Self::builder().open(
             path,
-            identifier,
+            drive,
             get_payload,
             send_and_await_response,
         )
@@ -797,15 +797,15 @@ impl Builder {
     pub fn create(
         &self,
         path: impl AsRef<Path>,
-        identifier: String,
+        drive: String,
         get_payload: fn() -> Option<(Option<String>, Vec<u8>)>,
-        send_and_await_response: fn(String, Result<u64, String>, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> ((String, Result<u64, String>), (Option<String>, Option<String>)),
+        send_and_await_response: fn(String, String, String, String, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> (Option<String>, Option<String>),
     ) -> Result<Database, DatabaseError> {
         let file = OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
-            .identifier(identifier)
+            .drive(drive)
             .get_payload(get_payload)
             .send_and_await_response(send_and_await_response)
             .open(path.as_ref().to_str().unwrap().into())?;
@@ -823,14 +823,14 @@ impl Builder {
     pub fn open(
         &self,
         path: impl AsRef<Path>,
-        identifier: String,
+        drive: String,
         get_payload: fn() -> Option<(Option<String>, Vec<u8>)>,
-        send_and_await_response: fn(String, Result<u64, String>, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> ((String, Result<u64, String>), (Option<String>, Option<String>)),
+        send_and_await_response: fn(String, String, String, String, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> (Option<String>, Option<String>),
     ) -> Result<Database, DatabaseError> {
         let file = OpenOptions::new()
             .read(true)
             .write(true)
-            .identifier(identifier)
+            .drive(drive)
             .get_payload(get_payload)
             .send_and_await_response(send_and_await_response)
             .open(path.as_ref().to_str().unwrap().into())?;
