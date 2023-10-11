@@ -249,12 +249,14 @@ impl Database {
     /// * otherwise this function will return an error
     pub fn create(
         path: impl AsRef<Path>,
+        our_node: String,
         drive: String,
         get_payload: fn() -> Option<(Option<String>, Vec<u8>)>,
         send_and_await_response: fn(String, String, String, String, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> (Option<String>, Option<String>),
     ) -> Result<Database, DatabaseError> {
         Self::builder().create(
             path,
+            our_node,
             drive,
             get_payload,
             send_and_await_response,
@@ -797,6 +799,7 @@ impl Builder {
     pub fn create(
         &self,
         path: impl AsRef<Path>,
+        our_node: String,
         drive: String,
         get_payload: fn() -> Option<(Option<String>, Vec<u8>)>,
         send_and_await_response: fn(String, String, String, String, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> (Option<String>, Option<String>),
@@ -805,6 +808,7 @@ impl Builder {
             .read(true)
             .write(true)
             .create(true)
+            .our_node(our_node)
             .drive(drive)
             .get_payload(get_payload)
             .send_and_await_response(send_and_await_response)

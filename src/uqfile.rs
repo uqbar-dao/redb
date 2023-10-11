@@ -119,7 +119,7 @@ impl File {
                 },
             }).unwrap()),
             None,
-            None,
+            Some((None, buf.to_vec())),
             15,
         );
         //  TODO: check Response is not error
@@ -152,6 +152,10 @@ impl OpenOptions {
     }
     pub fn read(self, b: bool) -> Self { self }
     pub fn write(self, b: bool) -> Self { self }
+    pub fn our_node(mut self, our_node: String) -> Self {
+        self.our_node = Some(our_node);
+        self
+    }
     pub fn drive(mut self, drive: String) -> Self {
         self.drive = Some(drive);
         self
@@ -220,7 +224,7 @@ impl OpenOptions {
                         },
                     }).unwrap()),
                     None,
-                    None,
+                    Some((None, vec![])),
                     15,
                 );
                 //  TODO: check Response is not error
