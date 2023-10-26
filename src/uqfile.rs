@@ -4,21 +4,20 @@ pub struct Metadata {
     our_node: String,
     path: String,
     drive: String,
-    send_and_await_response: fn(String, String, String, String, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> (Option<String>, Option<String>),
+    send_and_await_response: fn(String, String, String, String, Vec<u8>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> (Vec<u8>, Option<String>),
 }
 
 impl Metadata {
     pub fn len(self) -> u64 {
-        // let (_, response) = (self.send_and_await_response)(
         let response = (self.send_and_await_response)(
             self.our_node.clone(),
             "vfs".into(),
             "sys".into(),
             "uqbar".into(),
-            Some(serde_json::to_string(&VfsRequest {
+            serde_json::to_vec(&VfsRequest {
                 drive: self.drive.clone(),
                 action: VfsAction::GetEntryLength(self.path.clone()),
-            }).unwrap()),
+            }).unwrap(),
             None,
             None,
             15,
@@ -28,10 +27,7 @@ impl Metadata {
         else {
             panic!("");
         };
-        let Some::<String>(ipc) = ipc else {
-            panic!("");
-        };
-        let VfsResponse::GetEntryLength(length) = serde_json::from_str(&ipc).unwrap()
+        let VfsResponse::GetEntryLength(length) = serde_json::from_slice(&ipc).unwrap()
         else {
             panic!("");
         };
@@ -44,7 +40,7 @@ pub struct File {
     path: String,
     drive: String,
     get_payload: fn() -> Option<(Option<String>, Vec<u8>)>,
-    send_and_await_response: fn(String, String, String, String, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> (Option<String>, Option<String>),
+    send_and_await_response: fn(String, String, String, String, Vec<u8>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> (Vec<u8>, Option<String>),
 }
 
 impl File {
@@ -64,14 +60,14 @@ impl File {
             "vfs".into(),
             "sys".into(),
             "uqbar".into(),
-            Some(serde_json::to_string(&VfsRequest {
+            serde_json::to_vec(&VfsRequest {
                 drive: self.drive.clone(),
                 action: VfsAction::GetFileChunk {
                     full_path: self.path.clone(),
                     offset,
                     length: length as u64,
                 },
-            }).unwrap()),
+            }).unwrap(),
             None,
             None,
             15,
@@ -90,13 +86,13 @@ impl File {
             "vfs".into(),
             "sys".into(),
             "uqbar".into(),
-            Some(serde_json::to_string(&VfsRequest {
+            serde_json::to_vec(&VfsRequest {
                 drive: self.drive.clone(),
                 action: VfsAction::SetSize {
                     full_path: self.path.clone(),
                     size,
                 },
-            }).unwrap()),
+            }).unwrap(),
             None,
             None,
             15,
@@ -111,13 +107,13 @@ impl File {
             "vfs".into(),
             "sys".into(),
             "uqbar".into(),
-            Some(serde_json::to_string(&VfsRequest {
+            serde_json::to_vec(&VfsRequest {
                 drive: self.drive.clone(),
                 action: VfsAction::WriteOffset {
                     full_path: self.path.clone(),
                     offset,
                 },
-            }).unwrap()),
+            }).unwrap(),
             None,
             Some((None, buf.to_vec())),
             15,
@@ -132,7 +128,7 @@ pub struct OpenOptions {
     create: bool,
     drive: Option<String>,
     get_payload: Option<fn() -> Option<(Option<String>, Vec<u8>)>>,
-    send_and_await_response: Option<fn(String, String, String, String, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> (Option<String>, Option<String>)>,
+    send_and_await_response: Option<fn(String, String, String, String, Vec<u8>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> (Vec<u8>, Option<String>)>,
 }
 
 impl OpenOptions {
@@ -166,7 +162,7 @@ impl OpenOptions {
     }
     pub fn send_and_await_response(
         mut self,
-        send_and_await_response: fn(String, String, String, String, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> (Option<String>, Option<String>),
+        send_and_await_response: fn(String, String, String, String, Vec<u8>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> (Vec<u8>, Option<String>),
     ) -> Self {
         self.send_and_await_response = Some(send_and_await_response);
         self
@@ -190,10 +186,10 @@ impl OpenOptions {
             "vfs".into(),
             "sys".into(),
             "uqbar".into(),
-            Some(serde_json::to_string(&VfsRequest {
+            serde_json::to_vec(&VfsRequest {
                 drive: drive.clone(),
                 action: VfsAction::GetEntry(path.clone()),
-            }).unwrap()),
+            }).unwrap(),
             None,
             None,
             15,
@@ -216,13 +212,13 @@ impl OpenOptions {
                     "vfs".into(),
                     "sys".into(),
                     "uqbar".into(),
-                    Some(serde_json::to_string(&VfsRequest {
+                    serde_json::to_vec(&VfsRequest {
                         drive: drive.clone(),
                         action: VfsAction::Add {
                             full_path: path.clone(),
                             entry_type: AddEntryType::NewFile,
                         },
-                    }).unwrap()),
+                    }).unwrap(),
                     None,
                     Some((None, vec![])),
                     15,

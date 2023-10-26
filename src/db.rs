@@ -252,7 +252,7 @@ impl Database {
         our_node: String,
         drive: String,
         get_payload: fn() -> Option<(Option<String>, Vec<u8>)>,
-        send_and_await_response: fn(String, String, String, String, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> (Option<String>, Option<String>),
+        send_and_await_response: fn(String, String, String, String, Vec<u8>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> (Vec<u8>, Option<String>),
     ) -> Result<Database, DatabaseError> {
         Self::builder().create(
             path,
@@ -268,7 +268,7 @@ impl Database {
         path: impl AsRef<Path>,
         drive: String,
         get_payload: fn() -> Option<(Option<String>, Vec<u8>)>,
-        send_and_await_response: fn(String, String, String, String, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> (Option<String>, Option<String>),
+        send_and_await_response: fn(String, String, String, String, Vec<u8>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> (Vec<u8>, Option<String>),
     ) -> Result<Database, DatabaseError> {
         Self::builder().open(
             path,
@@ -802,7 +802,7 @@ impl Builder {
         our_node: String,
         drive: String,
         get_payload: fn() -> Option<(Option<String>, Vec<u8>)>,
-        send_and_await_response: fn(String, String, String, String, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> (Option<String>, Option<String>),
+        send_and_await_response: fn(String, String, String, String, Vec<u8>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> (Vec<u8>, Option<String>),
     ) -> Result<Database, DatabaseError> {
         let file = OpenOptions::new()
             .read(true)
@@ -829,7 +829,7 @@ impl Builder {
         path: impl AsRef<Path>,
         drive: String,
         get_payload: fn() -> Option<(Option<String>, Vec<u8>)>,
-        send_and_await_response: fn(String, String, String, String, Option<String>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> (Option<String>, Option<String>),
+        send_and_await_response: fn(String, String, String, String, Vec<u8>, Option<String>, Option<(Option<String>, Vec<u8>)>, u64) -> (Vec<u8>, Option<String>),
     ) -> Result<Database, DatabaseError> {
         let file = OpenOptions::new()
             .read(true)
